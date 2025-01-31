@@ -44,12 +44,15 @@ def resize_data_with_priority(data, idx_range, target_size):
 
 
 
-def decompose(spectrum):
+def decompose(spectrum, quarter_half):
     midpoint = len(spectrum) // 2  # spectrum actually only does to the nyquist
     first_half = spectrum[:midpoint]
     second_half = spectrum[midpoint:]
 
-    first_half_midpoint = len(first_half) // 2  # spectrum actually only does to the nyquist
+    if quarter_half == -1:
+        first_half_midpoint = len(first_half) // 2  # spectrum actually only does to the nyquist
+    else:
+        first_half_midpoint = int(len(first_half) // quarter_half)
     first_quarter = first_half[:first_half_midpoint]
     second_quarter = first_half[first_half_midpoint:]
 
@@ -60,15 +63,19 @@ def main():
     audio_data, sample_rate = librosa.load('files/JUST_Organ.wav', sr=None)
 
     # STFT parameters
-    n_fft = 2048  # Window size for FFT
-    freq_res = (44100/2048)#Come back to this, can graph to see where true midpoint RANGE is
-    hop_length = 512  # Hop size for moving the window
+    SIZE = 8192 #2048,8192,4096
+    anchor_grip_division_factor = 16
+    n_fft = SIZE  # Window size for FFT
+    quarter_n = int(SIZE/4)
+    freq_res = int(44100/SIZE)#Come back to this, can graph to see where true midpoint RANGE is
+    hop_length = int(SIZE/4) # Hop size for moving the window, SHOULD be half SIZE
     anchor = 1  # Frequency shift anchor
 
     # Compute STFT
     stft_result = librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length)
     stft_magnitude = np.abs(stft_result)
     stft_phase = np.angle(stft_result)
+    middle_anchor = int(400)  # we are trying to warp bins in index 0 - 510? 511#elem see below MAX n_fft/4
 
     # Process each time slice in the STFT
     for t in range(stft_magnitude.shape[1]):
@@ -91,7 +98,7 @@ def main():
         
         """
 
-        middle_anchor = 500#we are trying to warp bins in index 0 - 510? 511#elem see below
+
         # so is an array of index 0 - 1024 and a max frequency of 22.05khz
         #Half of this would half index of 0 - size:1025/ 2 = 512 elements non inclusive  for first half making it 511 and 513 number of elements
         #So first half has 511 elements
@@ -104,18 +111,21 @@ def main():
 
 
         #Helps for decomposing both phase and mag into first 2 quarters and last half in indexs 0,1,2 respectivly
-        decompMag = decompose(spectrum)
-        decompP = decompose(phase)
+        #Set to - 1 or 2 to set middle anchor GRIP half way between upper and lower bound
+        #otherwise set to the fraction between you want to set grip at, use decimal for above natural middle and whole for below
+        decompMag = decompose(spectrum,anchor_grip_division_factor)
+        decompP = decompose(phase,anchor_grip_division_factor)
         #Still usefull
 
         # 0 - 10
         #11 things
         # last arg is size of arrays returning, we want a total of 511 elements so - 511 not 510 which is actual range of anchor values, or is it?
         decompMag[0] = resize_data_with_priority(decompMag[0],[0,(len(decompMag[0])-1)],middle_anchor)
-        decompMag[1] = resize_data_with_priority(decompMag[1], [0, (len(decompMag[1])-1)], 512- middle_anchor)
+        decompMag[1] = resize_data_with_priority(decompMag[1], [0, (len(decompMag[1])-1)], (quarter_n- middle_anchor))
 
+        print(quarter_n)
         decompP[0] = resize_data_with_priority(decompP[0], [0, (len(decompP[0]) - 1)], middle_anchor)
-        decompP[1] = resize_data_with_priority(decompP[1], [0, (len(decompP[1]) - 1)], 512 - middle_anchor)
+        decompP[1] = resize_data_with_priority(decompP[1], [0, (len(decompP[1]) - 1)], (quarter_n - middle_anchor))
         #Preform warping here, will need to do this all again for phase lame
 
 
@@ -156,6 +166,14 @@ def main():
     librosa.display.specshow(original_spectrogram, sr=sample_rate, hop_length=hop_length, x_axis='time', y_axis='log')
     plt.colorbar(format='%+2.0f dB')
     plt.ylabel('Frequency (Hz)')
+    # Warp Anchor
+    plt.axhline(y=(middle_anchor * freq_res), color='blue', linestyle='--', linewidth=2,
+                label=f'anchor: {"warpAnchor"} Hz')
+    # Upper bound
+    plt.axhline(y=(11025), color='red', linestyle='--', linewidth=2, label=f'anchor: {11025 / 2} Hz')
+    # Warp Grip
+    plt.axhline(y=((quarter_n / anchor_grip_division_factor) * freq_res), color='green', linestyle='--', linewidth=2,
+                label=f'anchor: {middle_anchor * freq_res} Hz')
 
     # Shifted signal spectrogram with logarithmic frequency axis
     plt.subplot(2, 1, 2)
@@ -166,8 +184,12 @@ def main():
     plt.ylabel('Frequency (Hz)')
     plt.xlabel('Time (s)')
 
-    plt.axhline(y=middle_anchor*freq_res, color='blue', linestyle='--', linewidth=2, label=f'anchor: {middle_anchor*freq_res} Hz')
-    plt.axhline(y=11025/2, color='red', linestyle='--', linewidth=2, label=f'anchor: {11025/2} Hz')
+    #Warp Anchor
+    plt.axhline(y=(middle_anchor*freq_res), color='blue', linestyle='--', linewidth=2, label=f'anchor: {"warpAnchor"} Hz')
+    #Upper bound
+    plt.axhline(y=(11025), color='red', linestyle='--', linewidth=2, label=f'anchor: {11025/2} Hz')
+    #Warp Grip
+    plt.axhline(y=((quarter_n/anchor_grip_division_factor)*freq_res), color='green', linestyle='--', linewidth=2, label=f'anchor: {middle_anchor*freq_res} Hz')
 
     plt.tight_layout()
     plt.show()
