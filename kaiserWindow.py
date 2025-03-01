@@ -31,18 +31,20 @@ mags = np.abs(D)
 mags_db = librosa.amplitude_to_db(mags, ref=np.max)
 print("Computed a standard spectrogram")
 # Compute the reassigned spectrogram using the Kaiser window
+
+
 freqs, times, reassigned_mags = librosa.reassigned_spectrogram(
     y=y, sr=sr, n_fft=n_fft, hop_length=hop_length, window=window
 )
 reassigned_db = librosa.amplitude_to_db(reassigned_mags, ref=np.max)
 
 print("Computed the reassigned spectrogram")
+
 # Create subplots that share the y-axis
 fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, sharey=True, figsize=(10, 8))
 
 # Plot the standard spectrogram with a logarithmic frequency axis
-img = librosa.display.specshow(mags_db, sr=sr, hop_length=hop_length,
-                               x_axis='time', y_axis='log', ax=ax0)
+img = librosa.display.specshow(mags_db, sr=sr, hop_length=hop_length,x_axis='time', y_axis='log', ax=ax0)
 ax0.set(title='Standard Spectrogram (Log Frequency)')
 
 print("Computed Graph1")
@@ -54,9 +56,6 @@ ax1.set_facecolor('black')
 threshold = -80
 # Only plot points above -60 dB
 mask = reassigned_db > threshold
-
-
-
 # Plot the reassigned spectrogram using a scatter plot on the same y-axis scale
 #ADJUST alpha and s for point visibility characteristics
 ax1.scatter(times[mask], freqs[mask], c=reassigned_db[mask], cmap='magma', alpha=.1, s=1)
