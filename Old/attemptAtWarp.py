@@ -8,7 +8,7 @@ import scipy.fft
 
 def main():
     # Load audio data
-    audio_data, sample_rate = librosa.load('files/JUST_Organ.wav', sr=None)
+    audio_data, sample_rate = librosa.load('../files/JUST_Organ.wav', sr=None)
 
     # Apply window function
     windowed_signal = audio_data * np.hanning(len(audio_data))
@@ -52,7 +52,7 @@ def main():
     reconstructed_signal = reconstructed_signal / np.max(np.abs(reconstructed_signal))
 
     # Save the reconstructed audio
-    sf.write('./files/warped_audio.wav', reconstructed_signal, sample_rate)
+    sf.write('../files/warped_audio.wav', reconstructed_signal, sample_rate)
     print("Frequency-warped audio saved successfully.")
 
     # Higher resolution STFT parameters

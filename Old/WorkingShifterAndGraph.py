@@ -6,7 +6,7 @@ import librosa.display
 
 def main():
     # Load audio data
-    audio_data, sample_rate = librosa.load('files/JUST_Organ.wav', sr=None)
+    audio_data, sample_rate = librosa.load('../files/JUST_Organ.wav', sr=None)
 
     # Apply window function
     #Generates array of floating point numbers, tapering from small to large to small(The hanning window), then multiplies arrays, to window audio
@@ -33,7 +33,7 @@ def main():
     reconstructed_signal = reconstructed_signal / np.max(np.abs(reconstructed_signal))
 
     # Save the reconstructed audio
-    sf.write('./files/shifted_audio.wav', reconstructed_signal, sample_rate)
+    sf.write('../files/shifted_audio.wav', reconstructed_signal, sample_rate)
     print("Frequency-shifted audio saved successfully.")
 
     # Higher resolution STFT parameters

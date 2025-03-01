@@ -60,10 +60,11 @@ def decompose(spectrum, quarter_half):
 
 def main():
     # Load audio data
-    audio_data, sample_rate = librosa.load('files/JUST_Organ.wav', sr=None)
+    file_path = "files/JUST_Organ.wav"
+    audio_data, sample_rate = librosa.load( file_path, sr=None)
 
     # STFT parameters
-    SIZE = 8192 #2048,8192,4096
+    SIZE = 2048 #2048,8192,4096,1024
     anchor_grip_division_factor = 16
     n_fft = SIZE  # Window size for FFT
     quarter_n = int(SIZE/4)
@@ -78,6 +79,7 @@ def main():
     middle_anchor = int(400)  # we are trying to warp bins in index 0 - 510? 511#elem see below MAX n_fft/4
 
     # Process each time slice in the STFT
+    print(stft_magnitude.shape[1])
     for t in range(stft_magnitude.shape[1]):
 
 
@@ -123,7 +125,7 @@ def main():
         decompMag[0] = resize_data_with_priority(decompMag[0],[0,(len(decompMag[0])-1)],middle_anchor)
         decompMag[1] = resize_data_with_priority(decompMag[1], [0, (len(decompMag[1])-1)], (quarter_n- middle_anchor))
 
-        print(quarter_n)
+       # print(quarter_n)
         decompP[0] = resize_data_with_priority(decompP[0], [0, (len(decompP[0]) - 1)], middle_anchor)
         decompP[1] = resize_data_with_priority(decompP[1], [0, (len(decompP[1]) - 1)], (quarter_n - middle_anchor))
         #Preform warping here, will need to do this all again for phase lame

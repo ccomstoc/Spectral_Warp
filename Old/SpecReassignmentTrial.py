@@ -61,5 +61,5 @@ def enhanced_frequency_spectrogram(wav_file, db_threshold=-80):
 
 
 # Usage example
-wav_file = './files/JUST_Organ.wav'  # Replace with your WAV file path
+wav_file = '../files/JUST_Organ.wav'  # Replace with your WAV file path
 enhanced_frequency_spectrogram(wav_file, db_threshold=20)  # Adjust the threshold as needed
