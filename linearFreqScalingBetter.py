@@ -2,6 +2,8 @@
 import time
 import numpy as np
 import matplotlib
+from librosa import samples_like
+
 matplotlib.use("Qt5Agg")#Slightly faster than default
 import matplotlib.pyplot as plt
 import librosa
@@ -70,59 +72,59 @@ def decompose(spectrum, quarter_half):
 
 def main():
     # Load audio data
+
+    #file_path = "files/linShifted_audio.wav"
     #file_path = "files/JUST_Organ.wav"
     file_path = "files/NoOTTSaw.wav"
-    audio_data, sample_rate = librosa.load( file_path, sr=None)
+    audio_data, sample_rate = librosa.load(file_path, sr=None)
 
+
+
+    #--------------------------CONFIG--------------------------------------------------------
+    # ---------------------------------------------------------------------------------------
     #Best Params
     #4096 and hoplength/8 has been low noise but lower freq res than preferred
 
     # STFT parameters
     SIZE = (4096)#2048,8192,4096,1024 #The bigger, the less time res, more frequency res
-    anchor_grip_division_factor = 16
+
     n_fft = SIZE  # Window size for FFT
     quarter_n = int(SIZE/4)
     freq_res = int(44100/SIZE)#Come back to this, can graph to see where true midpoint RANGE is
     hop_length = n_fft // 4 # Hop size for moving the window, Default 4, SIZE #smaller hop means more overlap and closer points, but less freq res
     anchor = 1  # Frequency shift anchor
 
-    beta = 14  # Example beta value
+    beta = 14  # Example beta value, 14 is a colid value
     kaiser_window = librosa.filters.get_window(('kaiser', beta), n_fft)
+
+    # so nyquist / target freq is the ratio to be applied to size
+    # If you make this number larger than the top anchor, or nyquist/2, aka ~10k, it will break
+    warp_frequency = 500  # 5512.5 is no warp, and = starting anchor
+    anchor_grip_division_factor = 12  # Controls where top anchor is, 2 puts it at ~10k, aka half of nyquist
+    middle_anchor = int((warp_frequency / (sample_rate / 2)) * SIZE)
+    print(str(middle_anchor) + " MID ANCH ")
+    # middle_anchor = int(400)  # we are trying to warp bins in index 0 - 510? 511#elem see below MAX n_fft/4
+
+    # ---------------------------------------------------------------------------------------
+    # ---------------------------------------------------------------------------------------
+
+
+
 
     # Compute STFT
     stft_result = librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length,window=kaiser_window)
     stft_magnitude = np.abs(stft_result)
     stft_phase = np.angle(stft_result)
-    middle_anchor = int(400)  # we are trying to warp bins in index 0 - 510? 511#elem see below MAX n_fft/4
 
     # Process each time slice in the STFT
     print(stft_magnitude.shape[1])
     console_time_count = 0
-
     for t in range(stft_magnitude.shape[1]):
 
         if t %100 == 0:
             #print(f"\r" + str(console_time_count) + "/"+str(stft_magnitude.shape[1]/100), end ='\r')
             print(str(console_time_count) + "/"+str(stft_magnitude.shape[1]/100))
             console_time_count+=1
-
-
-        """ 
-        ***Currently works by like pretty much shifting frequency bins, but consider looking into interpolation in the frequency domain for frequency 
-        shifting as it can make things smoother and still works in fft when not shifting with integers, as it interpretes in between windows???
-        
-        
-        The first step here is to break everything down into the warp areas, or anchors
-        
-        A big oversight in the past to avoid is these arrays have bins not actual frquencies, also these bins only go up to ~22khz
-        The size of your stft result array, and thus magnitude and phase arrays, is (n_fft/2)+1
-        
-        Another large consideration is how the warp function will handle this data type, should it also warp phase?? But is spectrum already a complex number
-        
-        So I want my anchors to be at 0, and 11khz(half nyquist), I will leave above that untouched
-        
-        
-        """
 
 
         # so is an array of index 0 - 1024 and a max frequency of 22.05khz
@@ -133,9 +135,6 @@ def main():
         phase = stft_phase[:,t]
 
         midpoint = len(spectrum) // 2 #512 bc 1025/2
-
-
-
         #Helps for decomposing both phase and mag into first 2 quarters and last half in indexs 0,1,2 respectivly
         #Set to - 1 or 2 to set middle anchor GRIP half way between upper and lower bound
         #otherwise set to the fraction between you want to set grip at, use decimal for above natural middle and whole for below
@@ -153,11 +152,6 @@ def main():
         decompP[0] = resize_data_with_priority(decompP[0], [0, (len(decompP[0]) - 1)], middle_anchor)
         decompP[1] = resize_data_with_priority(decompP[1], [0, (len(decompP[1]) - 1)], (quarter_n - middle_anchor))
         #Preform warping here, will need to do this all again for phase lame
-
-
-
-
-
 
         # Reassemble the spectrum and phase
         stft_magnitude[:, t] = np.append(np.append(decompMag[0],decompMag[1]),decompMag[2])
@@ -178,71 +172,40 @@ def main():
     print("Frequency-shifted audio saved successfully.")
 
 
-    # Higher resolution STFT parameters
-    #n_fft = 4096  # Higher FFT size for better frequency resolution
-    #hop_length = 256  # Smaller hop length for better time resolution
-
-            # # Plot spectrograms
-            # plt.figure(figsize=(12, 8))
-            #
-            # # Original signal spectrogram with logarithmic frequency axis
-            # plt.subplot(2, 1, 1)
-            # plt.title("Original Signal Spectrogram (High Resolution)")
-            # original_spectrogram = librosa.amplitude_to_db(np.abs(librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length)), ref=np.max)
-            # librosa.display.specshow(original_spectrogram, sr=sample_rate, hop_length=hop_length, x_axis='time', y_axis='log')
-            # plt.colorbar(format='%+2.0f dB')
-            # plt.ylabel('Frequency (Hz)')
-            # # Warp Anchor
-            # plt.axhline(y=(middle_anchor * freq_res), color='blue', linestyle='--', linewidth=2,
-            #             label=f'anchor: {"warpAnchor"} Hz')
-            # # Upper bound
-            # plt.axhline(y=(11025), color='red', linestyle='--', linewidth=2, label=f'anchor: {11025 / 2} Hz')
-            # # Warp Grip
-            # plt.axhline(y=((quarter_n / anchor_grip_division_factor) * freq_res), color='green', linestyle='--', linewidth=2,
-            #             label=f'anchor: {middle_anchor * freq_res} Hz')
-            #
-            #
-            # # Shifted signal spectrogram with logarithmic frequency axis
-            # plt.subplot(2, 1, 2)
-            # plt.title("Frequency-Shifted Signal Spectrogram (High Resolution)")
-            # shifted_spectrogram = librosa.amplitude_to_db(np.abs(librosa.stft(reconstructed_signal, n_fft=n_fft, hop_length=hop_length)), ref=np.max)
-            # librosa.display.specshow(shifted_spectrogram, sr=sample_rate, hop_length=hop_length, x_axis='time', y_axis='log')
-            # plt.colorbar(format='%+2.0f dB')
-            # plt.ylabel('Frequency (Hz)')
-            # plt.xlabel('Time (s)')
-            #
-            # #Warp Anchor
-            # plt.axhline(y=(middle_anchor*freq_res), color='blue', linestyle='--', linewidth=2, label=f'anchor: {"warpAnchor"} Hz')
-            # #Upper bound
-            # plt.axhline(y=(11025), color='red', linestyle='--', linewidth=2, label=f'anchor: {11025/2} Hz')
-            # #Warp Grip
-            # plt.axhline(y=((quarter_n/anchor_grip_division_factor)*freq_res), color='green', linestyle='--', linewidth=2, label=f'anchor: {middle_anchor*freq_res} Hz')
-
-    #original_spectrogram = librosa.amplitude_to_db(np.abs(librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length, window=kaiser_window)),ref=np.max)
-
-
-
-
     #-----GRAPH CONFIG-----
+    # --------------------
+    # --------------------
+
+
     threshold = -80# Threshhold(db) reduces number of points that need to be drawn, improving performance
     alpha = .1 #how solid are plotted points
     size = 1 #how large are plotted points
     dpi = 100 #points per inch
 
+    top_anchor = sample_rate /4 #/2 because stft only goes to nyquist, /2 again because we are actually warping bottom 2 quarters
+    bottom_anchor = 32 #it is not actually 32, it is zero, but graph only goes to 32
+    non_warp_middle_anchor = (sample_rate/4)/anchor_grip_division_factor # /4 to get top anchor, /2 again to get half way between 0 and top, or division factor, to set even lower
+    warped_middle_anchor = warp_frequency
 
-    fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, sharey=True, figsize=(10, 8),dpi=dpi)
+
+    # --------------------
+    # --------------------
+    # --------------------
+
+    fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, sharey=True, figsize=(14, 8),dpi=dpi)
+
 
     # Define tick positions (2^6 to 2^14)
     custom_ticks = [2 ** i for i in range(5, 15)]  # [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
-
     # Set these tick positions on the y-axis of the scatter plot (ax1)
     ax0.set_yscale('log')
     ax0.set_ylim(32, 20000)  # Make sure the limits cover your desired range
     ax0.set_yticks(custom_ticks)
     # Format tick labels as "2^6", "2^7", etc. using LaTeX formatting for clarity
-    ax1.set_yticklabels([str(int(freq)) for freq in custom_ticks])
+    ax0.set_yticklabels([str(int(freq)) for freq in custom_ticks])
 
-    og_freqs, og_times, og_reassigned_mags = librosa.reassigned_spectrogram(
+
+    og_freqs, og_times, og_reassigned_mags = librosa.reassigned_spectrogram( # still limited in resolution, instead of the entire bin being colored in when being plotted, it offers more precise pinpointing within that bin
         y=audio_data,
         sr=sample_rate,
         n_fft=n_fft,
@@ -256,21 +219,14 @@ def main():
     ax0.set_facecolor('black')
     ax0.scatter(og_times[mask], og_freqs[mask], c=thresh_reassigned_db[mask], cmap='magma', alpha=alpha, s=size)
     print("Computed Graph2")
-    ax0.set(title='Original Spectrogram ',
-            xlabel='Time (s)', ylabel='Frequency (Hz)')
+    ax0.set(title='Original Spectrogram ', xlabel='Time (s)', ylabel='Frequency (Hz)')
 
-
-
-
-
-    #img = librosa.display.specshow(original_spectrogram, sr=sample_rate, hop_length=hop_length, x_axis='time', y_axis='log', ax=ax0)
-    #ax0.set(title='Standard Spectrogram (Log Frequency)')
-
-    #shifted_spectrogram = librosa.amplitude_to_db(np.abs(modified_stft), ref=np.max)
-    #librosa.display.specshow(shifted_spectrogram, sr=sample_rate, hop_length=hop_length, x_axis='time', y_axis='log',ax=ax1)
-
-
-
+    #----------Draw Marking Lines----------
+    ax0.axhline(y=top_anchor, color='yellow', linestyle='--', linewidth=2, label='Top Anchor')
+    ax0.axhline(y=bottom_anchor, color='yellow', linestyle='--', linewidth=2, label='Bottom Anchor')
+    ax0.axhline(y=non_warp_middle_anchor, color='green', linestyle='--', linewidth=2, label='Non-Warp Middle Anchor')
+    ax0.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # -------------------------------------
 
     mod_freqs, mod_times, mod_reassigned_mags = librosa.reassigned_spectrogram(
         y=reconstructed_signal,
@@ -289,20 +245,44 @@ def main():
     ax1.set_facecolor('black')
     ax1.scatter(mod_times[mask], mod_freqs[mask], c=thresh_reassigned_db[mask], cmap='magma', alpha=alpha, s=size)
     print("Computed Graph2")
-    ax1.set(title='Mod Spectrogram ',
-            xlabel='Time (s)', ylabel='Frequency (Hz)')
+    ax1.set(title='Mod Spectrogram ', xlabel='Time (s)', ylabel='Frequency (Hz)')
 
-    #fig.colorbar(scatter2,ax=(ax0, ax1), format="%+2.f dB")
-    #fig.colorbar(img, ax=(ax0, ax1), format="%+2.f dB")
+    # ----------Draw Marking Lines----------
+    ax1.axhline(y=top_anchor, color='yellow', linestyle='--', linewidth=2, label='Top Anchor')
+    ax1.axhline(y=bottom_anchor, color='yellow', linestyle='--', linewidth=2, label='Bottom Anchor')
+    ax1.axhline(y=warped_middle_anchor, color='red', linestyle='--', linewidth=2, label='Warp Middle Anchor')
+    ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # -------------------------------------
 
-    #plt.tight_layout()
 
     start_time = time.time()
     plt.draw()  # Renders the figure without blocking
     plt.pause(0.1)  # Pause briefly to allow rendering
     end_time = time.time()
-    print(f"plt.show() runtime (non-blocking): {end_time - start_time:.4f} seconds")
+    print(f"plt.show() runtime: {end_time - start_time:.4f} seconds")
     plt.show()
 
 if __name__ == "__main__":
     main()
+
+    """
+    Regarding reassignment method: 
+
+    So what if I have 2 sin waves generating a tone so similar that they would be represented by the same bin, would the reassignment method, 
+    and the result of the function represent that, or would it take the average of those frequencies and display them as one point in that bin. 
+    Because if the size of reassigned freqs mirrors that of the number of bins, wouldn't it be limited to one frequency per bin? 
+
+    Yes? it seems so... so the reassignment method does not offer necessarily higher resolution, but presents more accurate points within the current resolution
+
+
+        '
+        More advanced methods try to go beyond that limitation. For example:
+
+            Synchrosqueezing Transform (SST): This technique refines the time–frequency representation further by reassigning energy more adaptively. It can sometimes separate components that overlap in the basic STFT grid by concentrating the energy around their true instantaneous frequencies.
+
+            Parametric or Subspace Methods: Techniques like MUSIC, ESPRIT, or even high-resolution spectral estimation methods model the signal as a sum of sinusoids. They can estimate the parameters (frequency, amplitude, phase) of each sinusoid even if they are closer than what the basic STFT resolution would allow.
+
+            Sparse Representations/Matching Pursuit: These methods decompose a signal into a sum of basis functions (or atoms). If the signal is sparse in a particular dictionary, overlapping components might be separated more effectively than by using a fixed grid.
+        '
+
+    """
