@@ -3,7 +3,7 @@ import time
 import numpy as np
 import matplotlib
 from librosa import samples_like
-
+import math
 matplotlib.use("Qt5Agg")#Slightly faster than default
 import matplotlib.pyplot as plt
 import librosa
@@ -24,6 +24,7 @@ def loadBar(iteration,total,prefix='',suffix='',decimals=1,length=100,fill='>'):
 
 
 def resize_data_with_priority(data, idx_range, target_size):
+
     #This function turns 010203 into 130, so this could be investigated, the reason for this is because of how lower and
     #upper bound ar calculated,
     # fisrt the range of indexes 012345 are converted into 0,2.5,5 with the linspace funtion
@@ -33,7 +34,7 @@ def resize_data_with_priority(data, idx_range, target_size):
     start_idx = idx_range[0]
     end_idx = idx_range[1]
     # Extract the subarray to resize
-    subarray = data[start_idx:end_idx + 1]
+    subarray = data[start_idx:end_idx + 1]#end idx is non-inclusive
     original_size = len(subarray)
 
     # Initialize the new resized array with zeros
@@ -43,7 +44,7 @@ def resize_data_with_priority(data, idx_range, target_size):
     original_indices = np.linspace(0, original_size - 1, num=original_size)
     target_indices = np.linspace(0, original_size - 1, num=target_size)
 
-    for target_idx in range(target_size):
+    for target_idx in range(target_size): #should change to len(target_indices)
         # Find the range of original indices that map to this target index
         lower_bound = target_indices[target_idx - 1] if target_idx > 0 else 0
         upper_bound = target_indices[target_idx + 1] if target_idx < target_size - 1 else original_size - 1
@@ -56,15 +57,12 @@ def resize_data_with_priority(data, idx_range, target_size):
             resized_data[target_idx] = max(subarray[i] for i in relevant_indices)
 
     return resized_data
-def decompose(spectrum, quarter_half):
+def decompose(spectrum, quarter_half=2):
     midpoint = len(spectrum) // 2  # spectrum actually only does to the nyquist
-    first_half = spectrum[:midpoint]
-    second_half = spectrum[midpoint:]
+    first_half = spectrum[:midpoint] #with 2049, 1024
+    second_half = spectrum[midpoint:]#with 2049, 1025
 
-    if quarter_half == -1:
-        first_half_midpoint = len(first_half) // 2  # spectrum actually only does to the nyquist
-    else:
-        first_half_midpoint = int(len(first_half) // quarter_half)
+    first_half_midpoint = int(len(first_half) // quarter_half)
     first_quarter = first_half[:first_half_midpoint]
     second_quarter = first_half[first_half_midpoint:]
 
@@ -74,8 +72,8 @@ def main():
     # Load audio data
 
     #file_path = "files/linShifted_audio.wav"
-    #file_path = "files/JUST_Organ.wav"
-    file_path = "files/NoOTTSaw.wav"
+    file_path = "files/JUST_Organ.wav"
+    #file_path = "files/NoOTTSaw.wav"
     audio_data, sample_rate = librosa.load(file_path, sr=None)
 
 
@@ -99,9 +97,13 @@ def main():
 
     # so nyquist / target freq is the ratio to be applied to size
     # If you make this number larger than the top anchor, or nyquist/2, aka ~10k, it will break
-    warp_frequency = 500  # 5512.5 is no warp, and = starting anchor
-    anchor_grip_division_factor = 12  # Controls where top anchor is, 2 puts it at ~10k, aka half of nyquist
-    middle_anchor = int((warp_frequency / (sample_rate / 2)) * SIZE)
+    """
+    # 5512.5 is no warp, 
+    """
+    warp_frequency = 500
+
+    anchor_grip_division_factor = 64  # Controls where top anchor is, 2 puts it at ~10k, aka half of nyquist
+    middle_anchor = int((warp_frequency / (sample_rate / 2)) * (SIZE/2)) #SIZE/2 because stft returns half of size
     print(str(middle_anchor) + " MID ANCH ")
     # middle_anchor = int(400)  # we are trying to warp bins in index 0 - 510? 511#elem see below MAX n_fft/4
 
@@ -112,6 +114,7 @@ def main():
 
 
     # Compute STFT
+    #returns with size of (size/2)+1
     stft_result = librosa.stft(audio_data, n_fft=n_fft, hop_length=hop_length,window=kaiser_window)
     stft_magnitude = np.abs(stft_result)
     stft_phase = np.angle(stft_result)
@@ -119,6 +122,7 @@ def main():
     # Process each time slice in the STFT
     print(stft_magnitude.shape[1])
     console_time_count = 0
+    limitPrint = 0
     for t in range(stft_magnitude.shape[1]):
 
         if t %100 == 0:
@@ -131,8 +135,11 @@ def main():
         #Half of this would half index of 0 - size:1025/ 2 = 512 elements non inclusive  for first half making it 511 and 513 number of elements
         #So first half has 511 elements
         #511/2 255#elements first quarter 256 second quarter
+
+        #[:, t] - returns entire stft slice at time t, returns entire row a col t
         spectrum = stft_magnitude[:, t]
         phase = stft_phase[:,t]
+
 
         midpoint = len(spectrum) // 2 #512 bc 1025/2
         #Helps for decomposing both phase and mag into first 2 quarters and last half in indexs 0,1,2 respectivly
@@ -145,8 +152,43 @@ def main():
         # 0 - 10
         #11 things
         # last arg is size of arrays returning, we want a total of 511 elements so - 511 not 510 which is actual range of anchor values, or is it?
+
+        """
+        4096 TOTAL
+        stft returns 2048+1
+        
+        2049
+            decomp
+        1024
+        1024
+        
+        decomp mag length is 512, I feel like this should be 1024, because we are warping the bottom 2 quarters, and quarters are 1024, when size = 4096
+        
+        """
+
+
+        if limitPrint == 0:
+            print("len spec: ")
+            print(len(spectrum))
+            print('decomp left/right size')
+            print(len(decompMag[0]) )
+            print(len(decompMag[1]))
+        ogDecompMag = decompMag.copy()
+
         decompMag[0] = resize_data_with_priority(decompMag[0],[0,(len(decompMag[0])-1)],middle_anchor)
         decompMag[1] = resize_data_with_priority(decompMag[1], [0, (len(decompMag[1])-1)], (quarter_n- middle_anchor))
+
+        if limitPrint == 0:
+            print("data ")
+            print(len(decompMag[0]))
+            print("idx_range" + str([0,(len(decompMag[0])-1)]) + "target_size: " + str(middle_anchor))
+
+        for i in range(len(decompMag)):
+            if decompMag[0][i] != ogDecompMag[0][i]:
+                print(str(decompMag[0][i]) + " " + str(ogDecompMag[0][i]) + "DIFFFFFERENT!!!!!!!!!!!!!")
+
+        limitPrint +=1
+
 
        # print(quarter_n)
         decompP[0] = resize_data_with_priority(decompP[0], [0, (len(decompP[0]) - 1)], middle_anchor)
@@ -165,10 +207,10 @@ def main():
     reconstructed_signal = librosa.istft(modified_stft, hop_length=hop_length)
 
     # Normalize reconstructed signal
-    reconstructed_signal = reconstructed_signal / np.max(np.abs(reconstructed_signal))
+    #reconstructed_signal = reconstructed_signal / np.max(np.abs(reconstructed_signal))
 
     # Save the reconstructed audio
-    sf.write('./files/linShifted_audio.wav', reconstructed_signal, sample_rate)
+    sf.write('./files/linShifted_audio_OLD.wav', reconstructed_signal, sample_rate)
     print("Frequency-shifted audio saved successfully.")
 
 
@@ -178,8 +220,8 @@ def main():
 
 
     threshold = -80# Threshhold(db) reduces number of points that need to be drawn, improving performance
-    alpha = .1 #how solid are plotted points
-    size = 1 #how large are plotted points
+    alpha = .4 #how solid are plotted points
+    size = .5 #how large are plotted points
     dpi = 100 #points per inch
 
     top_anchor = sample_rate /4 #/2 because stft only goes to nyquist, /2 again because we are actually warping bottom 2 quarters
@@ -193,7 +235,7 @@ def main():
     # --------------------
 
     fig, (ax0, ax1) = plt.subplots(nrows=2, sharex=True, sharey=True, figsize=(14, 8),dpi=dpi)
-
+    fig.canvas.manager.set_window_title('OLD')
 
     # Define tick positions (2^6 to 2^14)
     custom_ticks = [2 ** i for i in range(5, 15)]  # [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384]
@@ -264,6 +306,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+    """
+        Next Steps:
+            dive into warping technique and improve, should not be changing data if no anchors are changed
+            try to understand how I could better use interpolation to warp more accurately, as well as re-think using max value,
+    
+    
+    """
+
 
     """
     Regarding reassignment method: 
