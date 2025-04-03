@@ -90,13 +90,13 @@ def main():
     # Load audio data
 
     #file_path = "files/linShifted_audio.wav"
-    #file_path = "files/JUST_Organ.wav"
+    file_path = "files/JUST_Organ.wav"
     #file_path = "files/crowd.wav"
     #file_path = "files/NoOTTSaw.wav"
 
-    file_path = "../files/FREE_MALWARE_FINAL.wav"
-    file_path = "../files/FIRSME_FINAL.wav"
-    file_out = '../files/linShifted_audio_NEWWARP.wav'
+    #file_path = "./files/FREE_MALWARE_FINAL.wav"
+    #file_path = "./files/FIRSME_FINAL.wav"
+    file_out = './files/linShifted_audio_NEWWARP.wav'
     normalize = False;
     audio_data, sample_rate = librosa.load(file_path, sr=None)
 
@@ -159,7 +159,7 @@ def main():
             warp_frequency -=warp_speed
         if warp_frequency < 4000 or warp_frequency >8000:
             flip =  not flip
-        print(warp_frequency)
+        #print(warp_frequency)
         middle_anchor = int((warp_frequency / (sample_rate / 2)) * (SIZE / 2))  # SIZE/2 because stft returns half of size
         #print(str(middle_anchor) + " MID ANCH ")
 
@@ -337,12 +337,14 @@ def main():
     # -------------------------------------
 
 
+    print("Drawing, please wait...")
     start_time = time.time()
     plt.draw()  # Renders the figure without blocking
     plt.pause(0.1)  # Pause briefly to allow rendering
     end_time = time.time()
     print(f"plt.show() runtime: {end_time - start_time:.4f} seconds")
     plt.show()
+    print("Drawn")
 
 if __name__ == "__main__":
     main()
