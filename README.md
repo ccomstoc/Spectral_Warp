@@ -1,4 +1,4 @@
-A side project I have been working on to better understand FFTs, python, and the numerous Python libraries. Still a WIP. 
+A side project I have been working on to better understand FFTs, python, and the numerous Python libraries. Very much still a WIP. 
 
 Objective is to allow the user to specify anchors on the spectrogram. Then allow the user to change these anchors, expanding and contracting the spectrum above and below to compensate.
 Allowing for both find tune adjustments, as well as unique distortions.
