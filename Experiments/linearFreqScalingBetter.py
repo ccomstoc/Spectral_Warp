@@ -72,7 +72,7 @@ def main():
     # Load audio data
 
     #file_path = "files/linShifted_audio.wav"
-    file_path = "files/JUST_Organ.wav"
+    file_path = "../files/JUST_Organ.wav"
     #file_path = "files/NoOTTSaw.wav"
     audio_data, sample_rate = librosa.load(file_path, sr=None)
 
@@ -210,7 +210,7 @@ def main():
     #reconstructed_signal = reconstructed_signal / np.max(np.abs(reconstructed_signal))
 
     # Save the reconstructed audio
-    sf.write('./files/linShifted_audio_OLD.wav', reconstructed_signal, sample_rate)
+    sf.write('../files/linShifted_audio_OLD.wav', reconstructed_signal, sample_rate)
     print("Frequency-shifted audio saved successfully.")
 
 

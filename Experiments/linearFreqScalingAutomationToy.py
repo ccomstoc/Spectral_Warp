@@ -94,9 +94,9 @@ def main():
     #file_path = "files/crowd.wav"
     #file_path = "files/NoOTTSaw.wav"
 
-    file_path = "files/FREE_MALWARE_FINAL.wav"
-    file_path = "files/FIRSME_FINAL.wav"
-    file_out = './files/linShifted_audio_NEWWARP.wav'
+    file_path = "../files/FREE_MALWARE_FINAL.wav"
+    file_path = "../files/FIRSME_FINAL.wav"
+    file_out = '../files/linShifted_audio_NEWWARP.wav'
     normalize = False;
     audio_data, sample_rate = librosa.load(file_path, sr=None)
 

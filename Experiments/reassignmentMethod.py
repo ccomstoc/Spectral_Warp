@@ -7,7 +7,7 @@ import librosa.display
 import matplotlib.pyplot as plt
 
 # Specify the path to your audio file
-file_path = "files/softSaw.wav"
+file_path = "../files/softSaw.wav"
 
 # Load the audio file (using sr=None to keep its native sampling rate)
 y, sr = librosa.load(file_path, sr=None)

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 # Specify the path to your audio file
 #file_path = "files/JUST_Organ.wav"
-file_path = "files/NoOTTSaw.wav"
+file_path = "../files/NoOTTSaw.wav"
 
     #"files/NoOTTSaw.wav"
 
